@@ -6,6 +6,7 @@ __pycache__/
 .DS_Store
 .env
 .pytest_cache/
+*.orig
 
 # ML artifacts & datasets
 checkpoints/
@@ -18,6 +19,7 @@ stability_reports/
 stability_reports_real*
 validation_report/
 annotated_outputs/
+thin_probe_outputs/
 
 # Large model files
 *.pt
@@ -30,10 +32,12 @@ annotated_outputs/
 *.log
 annotated*.png
 debug_*.png
+dbg_*.png
 mask_*.png
 response.json
 scores_report*.csv
 scores_summary*.json
+docker_diagnostics.txt
 
 # Local sample images
 sample_images/
