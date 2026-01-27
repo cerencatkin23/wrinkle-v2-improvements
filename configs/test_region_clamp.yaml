@@ -1,0 +1,164 @@
+dataset_root: /Users/cerencatkin/Downloads/Face Wrinkles Detection
+input_size: 512
+num_workers: 2
+seed: 42
+model:
+  encoder: resnet34
+  pretrained: false
+  in_channels: 3
+  out_channels: 1
+train:
+  batch_size: 4
+  epochs: 20
+  lr: 0.0003
+  weight_decay: 0.0001
+  val_interval: 1
+  save_dir: checkpoints
+  best_name: wrinkle_unet_best.pt
+  export_name: wrinkle_unet_best.ts
+loss:
+  dice_weight: 0.6
+  bce_weight: 0.4
+  boundary_weight: 0.2
+  boundary_kernel: 3
+quality_gate:
+  require_face_detection: false
+  min_face_area_ratio: 0.06
+  blur_laplacian_var: 70.0
+  min_brightness: 50.0
+  max_brightness: 210.0
+scoring:
+  global_weights:
+    area_ratio: 0.4
+    skeleton_length: 0.3
+    thickness: 0.2
+    density: 0.1
+  norm:
+    area_ratio:
+    - 0.0
+    - 0.15
+    skeleton_length:
+    - 0.0
+    - 1200.0
+    thickness:
+    - 1.0
+    - 6.0
+    density:
+    - 0.0
+    - 0.02
+  per_region_weights:
+    area_ratio: 0.45
+    skeleton_length: 0.25
+    thickness: 0.2
+    density: 0.1
+  per_region_metric_weights:
+    area_ratio: 0.45
+    skeleton_length: 0.25
+    thickness: 0.2
+    density: 0.1
+  region_weights:
+    forehead: 1.0
+    glabella: 1.0
+    bunny_lines: 1.0
+    crows_feet_left: 1.0
+    crows_feet_right: 1.0
+    under_eye_left: 1.0
+    under_eye_right: 1.0
+    nasolabial_left: 1.0
+    nasolabial_right: 1.0
+    smoker_lines: 1.0
+    chin: 1.0
+  region_normalization:
+    method: robust
+    priors:
+      area_ratio:
+        median: 0.02
+        iqr: 0.02
+      skeleton_length:
+        median: 150.0
+        iqr: 200.0
+      thickness:
+        median: 2.0
+        iqr: 1.0
+      density:
+        median: 0.003
+        iqr: 0.003
+  thresholds:
+    area_ratio:
+    - 0.02
+    - 0.05
+    - 0.1
+    skeleton_length:
+    - 150.0
+    - 400.0
+    - 800.0
+    thickness:
+    - 1.5
+    - 3.0
+    - 5.0
+    density:
+    - 0.002
+    - 0.006
+    - 0.012
+  stabilization:
+    enabled: true
+    max_abs_z: 3.0
+    max_region_pct: 0.4
+    aggregation: trimmed_mean
+    trim_ratio: 0.1
+    region_score_caps:
+      crows_feet_right: 55.0
+      under_eye_right: 55.0
+regions:
+  enabled:
+  - forehead
+  - glabella
+  - bunny_lines
+  - crows_feet_left
+  - crows_feet_right
+  - under_eye_left
+  - under_eye_right
+  - nasolabial_left
+  - nasolabial_right
+  - smoker_lines
+  - chin
+inference:
+  checkpoint_path: checkpoints/wrinkle_unet_best.pt
+  export_path: checkpoints/wrinkle_unet_best.ts
+  mask_threshold: 0.5
+stability_eval:
+  num_perturbations: 5
+  brightness_jitter: 0.05
+  contrast_jitter: 0.05
+  rotation_deg: 3.0
+  crop_pct: 0.03
+  blur_ksize: 3
+  blur_prob: 0.2
+calibration:
+  enabled: false
+  anchors:
+  - - 0
+    - 0
+  - - 30
+    - 25
+  - - 60
+    - 60
+  - - 100
+    - 100
+  age_brackets:
+  - min: 0
+    max: 29
+    delta: -1
+  - min: 30
+    max: 45
+    delta: 0
+  - min: 46
+    max: 65
+    delta: 2
+  - min: 66
+    max: 120
+    delta: 3
+  skin_type_delta:
+    normal: 0
+    dry: 2
+    oily: -2

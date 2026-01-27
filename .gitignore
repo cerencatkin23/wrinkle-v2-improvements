@@ -1,0 +1,40 @@
+.venv/
+.venv*/
+.demo_venv/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+.pytest_cache/
+
+# ML artifacts & datasets
+checkpoints/
+outputs/
+runs/
+data/
+datasets/
+logs/
+stability_reports/
+stability_reports_real*
+validation_report/
+annotated_outputs/
+
+# Large model files
+*.pt
+*.pth
+*.ts
+*.onnx
+*.ckpt
+
+# Local reports & debug artifacts
+*.log
+annotated*.png
+debug_*.png
+mask_*.png
+response.json
+scores_report*.csv
+scores_summary*.json
+
+# Local sample images
+sample_images/
+sample_images_real/

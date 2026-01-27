@@ -1,0 +1,144 @@
+Wrinkle V2 Worklog (Detailed)
+============================
+
+Scope and constraints
+- All project files created under /Users/cerencatkin/wrinkle_v2.
+- Dataset location used: /Users/cerencatkin/Downloads/Face Wrinkles Detection
+- Environment: macOS, venv at /Users/cerencatkin/wrinkle_v2/.venv (Python 3.11).
+
+Repository structure created
+- wrinkle_v2/
+  - configs/default.yaml
+  - configs/local.yaml
+  - src/wrinkle_v2/
+    - data/ (roboflow_dataset.py, augmentations.py)
+    - models/unet.py
+    - pipeline/ (predictor.py, inference.py, losses.py, metrics.py)
+    - quality/quality_gate.py
+    - regions/face_regions.py
+    - scoring.py
+    - utils.py
+  - scripts/ (train_seg.py, predict.py, server.py, smoke_test.py, eval_seg.py, calibrate_threshold.py)
+  - tests/README.md
+  - checkpoints/
+  - runs/
+  - README.md
+  - requirements.txt
+  - pyproject.toml
+  - WORKLOG.txt (this file)
+
+Key implementation details
+1) Dataset handling
+- Roboflow-compatible loader in src/wrinkle_v2/data/roboflow_dataset.py.
+- Auto-detects YOLOv8-seg polygons (.txt) and COCO JSON segmentation.
+- Rasterizes polygons to a binary wrinkle mask.
+- Uses consistent resize with padding and nearest-neighbor for masks.
+- Augmentations (mild brightness/contrast, blur/noise, flip) in augmentations.py.
+
+2) Segmentation model
+- UNet with ResNet34 encoder (torchvision), in src/wrinkle_v2/models/unet.py.
+- Loss: Dice + BCE.
+- Metrics: Dice, IoU.
+- Training script: scripts/train_seg.py
+  - Added auto-resume from checkpoints/wrinkle_unet_last.pt.
+  - Saves best to checkpoints/wrinkle_unet_best.pt and TorchScript to checkpoints/wrinkle_unet_best.ts.
+  - Saves last checkpoint each epoch.
+
+3) Quality gate
+- Implemented in src/wrinkle_v2/quality/quality_gate.py.
+- Checks: blur (Laplacian variance), brightness, face size, pose (yaw/pitch/roll), missing landmarks.
+- Uses MediaPipe FaceMesh when available; falls back to Haar face detector.
+- Added allow_haar_fallback flag in config:
+  - configs/default.yaml: allow_haar_fallback: false
+  - configs/local.yaml: allow_haar_fallback: true
+- Haar fallback can pass quality if face is detected and other checks pass, even without landmarks.
+
+4) Region mapping + measurements
+- MediaPipe landmarks define regions: forehead, glabella, bunny_lines, crow’s feet L/R, under-eye L/R,
+  nasolabial L/R, smoker_lines, chin.
+- Measurements computed per region and globally:
+  - area_ratio, coverage_pct, skeleton_length, thickness, density.
+- Added Haar-based approximate region masks if landmarks are unavailable (rect/ellipse approximations).
+
+5) Measurement-based scoring and reasoning
+- Scoring in src/wrinkle_v2/scoring.py.
+- No confidence-based scoring; derived from mask geometry metrics.
+- Uses normalization ranges and weights from configs/default.yaml.
+- Deterministic reasoning string based on thresholds and metrics.
+
+6) Inference and API
+- CLI: scripts/predict.py (optional overlay output).
+- FastAPI server: scripts/server.py.
+- Inference uses inference.mask_threshold from config.
+
+7) Smoke test
+- scripts/smoke_test.py loads one test image, runs pipeline, and validates JSON schema keys.
+- Disables MediaPipe during smoke test to avoid native crashes.
+
+8) Evaluation and calibration
+- scripts/eval_seg.py computes Dice/IoU on valid and test, writes runs/metrics.json.
+- scripts/calibrate_threshold.py sweeps binarization threshold to maximize Dice on valid,
+  writes runs/threshold_sweep.json.
+
+Dependency management
+- requirements.txt adjusted for Python 3.11 compatibility:
+  - torch==2.1.2
+  - torchvision==0.16.2
+  - albumentations==1.3.1 (downgraded due to albucore compatibility)
+- pyproject.toml added for src layout packaging.
+
+Training run summary (user-side)
+- Training ran for 20 epochs, best validation Dice ~0.4728.
+- Best checkpoint saved to wrinkle_v2/checkpoints/wrinkle_unet_best.pt.
+- TorchScript export saved to wrinkle_v2/checkpoints/wrinkle_unet_best.ts.
+- Last checkpoint saved to wrinkle_v2/checkpoints/wrinkle_unet_last.pt.
+
+Evaluation results (user-side)
+- Valid: Dice 0.47275844487276947, IoU 0.32930643675905286
+- Test: Dice 0.42026710510253906, IoU 0.28351002816970533
+
+Threshold calibration (user-side)
+- Sweep 0.20–0.80 step 0.05.
+- Best threshold = 0.8 with Dice 0.47562599182128906.
+- Updated configs/local.yaml: inference.mask_threshold: 0.8.
+
+Inference checks
+- Initial test/valid images returned NO_SCORE due to landmarks_missing / image_blurry.
+- MediaPipe initialization failed on macOS due to NSOpenGLPixelFormat (kGpuService) in headless/CLI runs.
+- Implemented Haar fallback and allow_haar_fallback in local config to permit OK outputs.
+- Verified an OK output on:
+  /Users/cerencatkin/Downloads/Face Wrinkles Detection/valid/00341_png_jpg.rf.4faf5acf00c162a32ab17584c9f3148f.jpg
+  - Status OK, quality passed (landmark_fallback_used: 1.0).
+  - Region scores and measurements present.
+  - Global score computed (0.0 for this sample due to mask outputs).
+
+Commands run (representative)
+- venv activation: source wrinkle_v2/.venv/bin/activate
+- install deps: pip install -r wrinkle_v2/requirements.txt
+- train: python wrinkle_v2/scripts/train_seg.py --config wrinkle_v2/configs/local.yaml
+- eval: python wrinkle_v2/scripts/eval_seg.py --config wrinkle_v2/configs/local.yaml --checkpoint wrinkle_v2/checkpoints/wrinkle_unet_best.pt
+- calibrate: python wrinkle_v2/scripts/calibrate_threshold.py --config wrinkle_v2/configs/local.yaml --checkpoint wrinkle_v2/checkpoints/wrinkle_unet_best.pt --min 0.2 --max 0.8 --step 0.05
+- predict: python wrinkle_v2/scripts/predict.py --config wrinkle_v2/configs/local.yaml --image <image_path>
+
+Notable adjustments and fixes during work
+- Added auto-resume + last checkpoint save in train_seg.py.
+- Added mask_threshold in configs and inference.
+- Fixed syntax errors from escaped quotes in scripts.
+- Switched torch/torchvision versions to Python 3.11 compatible.
+- Added pyproject.toml for editable installs.
+- Updated predict/smoke/server scripts to resolve config paths relative to script location.
+- Made eval/calibrate robust if a directory is accidentally passed as checkpoint.
+- Added Haar-based region fallback to allow OK outputs when MediaPipe fails.
+
+Outstanding
+- If you want MediaPipe landmark-based regions (instead of Haar fallback), the system needs a stable
+  GPU/OpenGL context for MediaPipe on macOS CLI. The current setup falls back to Haar for OK results.
+
+Files modified/added (high level)
+- configs/default.yaml, configs/local.yaml
+- requirements.txt, pyproject.toml, README.md
+- src/wrinkle_v2/* (data, models, pipeline, quality, regions, scoring, utils)
+- scripts/* (train, predict, server, smoke, eval, calibrate)
+- tests/README.md
+- runs/ (metrics.json, threshold_sweep.json when generated)
+- checkpoints/ (best, last, torchscript)

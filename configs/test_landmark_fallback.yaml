@@ -1,0 +1,5 @@
+quality_gate:
+  allow_landmark_face_fallback: true
+  min_face_area_ratio: 0.04
+  landmark_face_area_ratio_min: 0.03
+  blur_laplacian_var: 50.0
