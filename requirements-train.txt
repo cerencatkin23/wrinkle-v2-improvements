@@ -1,0 +1,6 @@
+# Training-only dependencies
+# Install torch/torchvision separately if your environment already provides them.
+torch
+torchvision
+tqdm
+albumentations
